@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICRED Operations Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#F1F5F9;color:#1E293B;min-height:100vh}
+header{background:#0F172A;color:#fff;padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+header h1{font-size:1.2rem;font-weight:700;letter-spacing:-.02em}
+header .sub{font-size:.75rem;opacity:.55;margin-bottom:2px}
+.file-zone{margin-left:auto;display:flex;align-items:center;gap:12px}
+.file-btn{cursor:pointer;background:#2563EB;color:#fff;padding:8px 18px;border-radius:6px;font-size:.85rem;font-weight:600;border:none;transition:background .15s}
+.file-btn:hover{background:#1D4ED8}
+#fileInput{display:none}
+#fileName{font-size:.78rem;opacity:.65}
+.tab-bar{display:none;background:#fff;border-bottom:1px solid #E2E8F0;padding:0 20px;overflow-x:auto;white-space:nowrap}
+.tab-bar.on{display:flex}
+.tab-btn{padding:11px 16px;background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:.85rem;font-weight:500;color:#64748B;transition:all .15s;white-space:nowrap}
+.tab-btn:hover{color:#1E293B}
+.tab-btn.active{color:#2563EB;border-bottom-color:#2563EB;font-weight:700}
+#dash{display:none;padding:22px;max-width:1400px;margin:0 auto}
+#dash.on{display:block}
+#up-prompt{padding:80px 24px;text-align:center}
+#up-prompt h2{font-size:1.5rem;font-weight:700;margin-bottom:8px}
+#up-prompt p{color:#64748B;margin-bottom:24px;max-width:480px;margin-left:auto;margin-right:auto}
+.tab-c{display:none}
+.tab-c.active{display:block}
+.sec-title{font-size:1.35rem;font-weight:700;color:#0F172A;margin-bottom:3px}
+.sec-sub{color:#64748B;font-size:.875rem;margin-bottom:18px}
+.card{background:#fff;border-radius:10px;padding:18px 22px;box-shadow:0 1px 4px rgba(0,0,0,.07);margin-bottom:18px}
+.card-title{font-size:.78rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px}
+.chart-wrap{position:relative;height:250px}
+.callout{border-left:4px solid #2563EB;background:#EFF6FF;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:.83rem;color:#1E40AF;line-height:1.55}
+.callout.amber{background:#FFFBEB;border-color:#F59E0B;color:#92400E}
+.callout.purple{background:#F5F3FF;border-color:#8B5CF6;color:#5B21B6}
+.callout.green{background:#F0FDF4;border-color:#10B981;color:#065F46}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+@media(max-width:860px){.g2,.g3{grid-template-columns:1fr}}
+.stats{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px}
+.stat{background:#fff;border-radius:9px;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.07);flex:1;min-width:150px}
+.stat-lbl{font-size:.7rem;color:#94A3B8;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.stat-val{font-size:1.5rem;font-weight:700;margin:3px 0}
+.stat-chg{font-size:.78rem;font-weight:700}
+.up{color:#10B981}.down{color:#EF4444}.flat{color:#94A3B8}
+.wow-row{display:flex;flex-wrap:wrap;gap:3px;margin-top:8px}
+.wb{font-size:.68rem;padding:2px 6px;border-radius:999px;font-weight:700}
+.wb.up{background:#DCFCE7;color:#15803D}
+.wb.down{background:#FEE2E2;color:#DC2626}
+.wb.flat{background:#F1F5F9;color:#94A3B8}
+.wb.na{background:#F1F5F9;color:#CBD5E1}
+table.ov{width:100%;border-collapse:collapse;font-size:.875rem}
+table.ov th{background:#F8FAFC;padding:9px 13px;text-align:left;font-size:.72rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #E2E8F0}
+table.ov td{padding:11px 13px;border-bottom:1px solid #F1F5F9;vertical-align:middle}
+table.ov tr:hover td{background:#F8FAFC}
+.pname{font-weight:700;color:#0F172A}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="sub">ICRED GROUP</div>
+    <h1>Operations Dashboard</h1>
+  </div>
+  <div class="file-zone">
+    <label class="file-btn" for="fileInput">Load Weekly Agenda (.xlsx)</label>
+    <input type="file" id="fileInput" accept=".xlsx,.xlsm">
+    <span id="fileName">No file loaded</span>
+  </div>
+</header>
+
+<div class="tab-bar" id="tabBar">
+  <button class="tab-btn active" onclick="showTab('overview')">Overview</button>
+  <button class="tab-btn" onclick="showTab('venue')">Odyssey Venue</button>
+  <button class="tab-btn" onclick="showTab('elements')">Elements</button>
+  <button class="tab-btn" onclick="showTab('golf')">Odyssey Golf</button>
+  <button class="tab-btn" onclick="showTab('sweetspot')">Sweet Spot</button>
+  <button class="tab-btn" onclick="showTab('funworld')">Odyssey Fun World</button>
+  <button class="tab-btn" onclick="showTab('golfview')">Golfview Townhomes</button>
+</div>
+
+<div id="up-prompt">
+  <h2>Operations Dashboard</h2>
+  <p>Load any weekly operations agenda Excel file to view the interactive KPI dashboard. No data leaves your computer.</p>
+  <label class="file-btn" for="fileInput" style="display:inline-block;padding:13px 32px;font-size:1rem">Choose Excel File</label>
+</div>
+
+<div id="dash">
+  <div class="tab-c active" id="tab-overview"></div>
+  <div class="tab-c" id="tab-venue"></div>
+  <div class="tab-c" id="tab-elements"></div>
+  <div class="tab-c" id="tab-golf"></div>
+  <div class="tab-c" id="tab-sweetspot"></div>
+  <div class="tab-c" id="tab-funworld"></div>
+  <div class="tab-c" id="tab-golfview"></div>
+</div>
+
+<script>
+// ── PALETTE ───────────────────────────────────────────────────
+const C = {
+  blue:'#2563EB', sky:'#0EA5E9', teal:'#14B8A6', green:'#10B981',
+  amber:'#F59E0B', orange:'#F97316', red:'#EF4444', purple:'#8B5CF6',
+  slate:'#64748B', pink:'#EC4899'
+};
+
+// ── CHART REGISTRY ────────────────────────────────────────────
+const charts = [];
+function destroyAll(){ charts.forEach(c=>{try{c.destroy()}catch(e){}}); charts.length=0; }
+
+function mkChart(id, type, labels, datasets, opts={}){
+  const canvas = document.getElementById(id);
+  if(!canvas) return;
+  const ch = new Chart(canvas.getContext('2d'), {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { font:{family:"'Segoe UI',Arial,sans-serif",size:11}, boxWidth:11, padding:14 } },
+        tooltip: {
+          callbacks: {
+            label(ctx){
+              const v = ctx.raw;
+              if(v===null||v===undefined) return `${ctx.dataset.label}: —`;
+              if(opts.dollar) return `${ctx.dataset.label}: $${Math.round(v).toLocaleString()}`;
+              if(opts.pct) return `${ctx.dataset.label}: ${v.toFixed(2)}%`;
+              return `${ctx.dataset.label}: ${typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:1}):v}`;
+            }
+          }
+        },
+        ...(opts.pluginOverrides||{})
+      },
+      scales: {
+        x: { grid:{display:false}, ticks:{font:{family:"'Segoe UI',Arial,sans-serif",size:10}} },
+        y: {
+          grid:{color:'#F1F5F9'},
+          ticks:{
+            font:{family:"'Segoe UI',Arial,sans-serif",size:10},
+            callback(v){
+              if(opts.dollar) return v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v;
+              if(opts.pct) return v.toFixed(1)+'%';
+              return v;
+            }
+          }
+        },
+        ...(opts.scaleOverrides||{})
+      },
+      ...(opts.extra||{})
+    }
+  });
+  charts.push(ch);
+  return ch;
+}
+
+// ── PARSING ───────────────────────────────────────────────────
+function fmtDate(d){
+  if(d instanceof Date){
+    const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${d.getUTCDate()}-${M[d.getUTCMonth()]}`;
+  }
+  if(typeof d==='number'){
+    const j=new Date((d-25569)*86400*1000);
+    const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${j.getUTCDate()}-${M[j.getUTCMonth()]}`;
+  }
+  return String(d);
+}
+
+function normProp(raw){
+  const s = String(raw).trim().split('\n')[0].trim();
+  return s.replace(/\s*\(.*$/,'').replace(/\s*[—–-].*$/,'').trim();
+}
+
+function parseSheet(ws){
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+  let hi = -1;
+  for(let i=0;i<rows.length;i++){
+    if(rows[i] && String(rows[i][0]||'').trim()==='Property'){ hi=i; break; }
+  }
+  if(hi===-1) return null;
+
+  const hdr = rows[hi];
+  const dateCols = [];
+  for(let c=3;c<hdr.length;c++){
+    const v = hdr[c];
+    if(!v) continue;
+    if(typeof v==='string' && v.toLowerCase().includes('pre-read')) break;
+    dateCols.push({c, lbl: fmtDate(v)});
+  }
+
+  // Dates in data: most-recent on left → reverse for chronological order
+  const dates = dateCols.map(d=>d.lbl).reverse();
+
+  let prop = null;
+  const P = {}, G = {};
+
+  for(let r=hi+1;r<rows.length;r++){
+    const row = rows[r];
+    if(!row) continue;
+    const rp = row[0];
+    if(rp!==null && rp!==undefined && String(rp).trim()!==''){
+      prop = normProp(rp);
+    }
+    const kpi = row[1] ? String(row[1]).trim() : null;
+    if(!prop||!kpi) continue;
+
+    if(!P[prop]) P[prop]={};
+    if(!G[prop]) G[prop]={};
+
+    const gRaw = row[2];
+    if(gRaw!==null && gRaw!==undefined && gRaw!==''){
+      const g = parseFloat(gRaw);
+      if(!isNaN(g)) G[prop][kpi]=g;
+    }
+
+    // Extract values per date column order, then reverse
+    const vals = dateCols.map(({c})=>{
+      const v = row[c];
+      if(v===null||v===undefined) return null;
+      if(v instanceof Date) return null;
+      if(typeof v==='string' && v.trim()==='') return null;
+      if(typeof v==='number') return v;
+      const n = parseFloat(v);
+      return isNaN(n)?null:n;
+    }).reverse();
+
+    P[prop][kpi] = vals;
+  }
+
+  return {dates, P, G};
+}
+
+// ── DATA HELPERS ──────────────────────────────────────────────
+function last(arr){ if(!arr) return null; for(let i=arr.length-1;i>=0;i--) if(arr[i]!==null) return arr[i]; return null; }
+
+function wow(arr){
+  if(!arr) return null;
+  const v=arr.filter(x=>x!==null);
+  if(v.length<2) return null;
+  const a=v[v.length-2], b=v[v.length-1];
+  return a===0?null:((b-a)/Math.abs(a))*100;
+}
+
+function wowArr(arr){
+  return (arr||[]).map((v,i)=>{
+    if(i===0||v===null||(arr[i-1]===null)||(arr[i-1]===0)) return null;
+    return ((v-arr[i-1])/Math.abs(arr[i-1]))*100;
+  });
+}
+
+function trend3(arr){
+  const v=(arr||[]).filter(x=>x!==null);
+  if(v.length<2) return 'flat';
+  const s=v.slice(-3);
+  const p=((s[s.length-1]-s[0])/Math.abs(s[0]))*100;
+  return p>3?'up':p<-3?'down':'flat';
+}
+
+function sumKpis(P, propKey, partials){
+  const prop = P[propKey];
+  if(!prop) return null;
+  const series = partials.map(part=>{
+    const k=Object.keys(prop).find(k=>k.toLowerCase().includes(part.toLowerCase()));
+    return k?prop[k]:null;
+  }).filter(Boolean);
+  if(!series.length) return null;
+  const len=series[0].length;
+  return Array.from({length:len},(_,i)=>{
+    const vals=series.map(s=>s[i]);
+    if(vals.every(v=>v===null)) return null;
+    return vals.reduce((s,v)=>s+(v||0),0);
+  });
+}
+
+function getKpi(P, propKey, partial){
+  const prop=P[propKey];
+  if(!prop) return null;
+  const k=Object.keys(prop).find(k=>k.toLowerCase().includes(partial.toLowerCase()));
+  return k?prop[k]:null;
+}
+
+function laborIntArr(rev, labor){
+  if(!rev||!labor) return null;
+  return rev.map((r,i)=>(r&&labor[i]&&labor[i]>0)?(r/labor[i]):null);
+}
+
+function cur(v){ return v===null?'—':'$'+Math.round(v).toLocaleString(); }
+function num(v,d=1){ return v===null?'—':typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:d}):v; }
+function pctStr(v){ return v===null?'—':v.toFixed(1)+'%'; }
+
+// ── HTML HELPERS ──────────────────────────────────────────────
+function statHtml(lbl, val, chg){
+  let chgHtml='';
+  if(chg!==null&&chg!==undefined){
+    const cls=chg>2?'up':chg<-2?'down':'flat';
+    const arrow=chg>2?'▲':chg<-2?'▼':'→';
+    const sign=chg>0?'+':'';
+    chgHtml=`<div class="stat-chg ${cls}">${arrow} ${sign}${chg.toFixed(1)}% WoW</div>`;
+  }
+  return `<div class="stat"><div class="stat-lbl">${lbl}</div><div class="stat-val">${val}</div>${chgHtml}</div>`;
+}
+
+function wowHtml(arr, dates){
+  const w=wowArr(arr);
+  return '<div class="wow-row">'+w.map((v,i)=>{
+    if(v===null) return `<span class="wb na">${dates[i]}</span>`;
+    const cls=v>2?'up':v<-2?'down':'flat';
+    const sign=v>0?'+':'';
+    return `<span class="wb ${cls}">${dates[i]}: ${sign}${v.toFixed(1)}%</span>`;
+  }).join('')+'</div>';
+}
+
+function trendArrow(t){ return t==='up'?'<span class="up">▲</span>':t==='down'?'<span class="down">▼</span>':'<span class="flat">→</span>'; }
+
+// ── LINE DATASET SHORTHAND ─────────────────────────────────────
+function line(label, data, color, fill=false){
+  return {label,data,borderColor:color,backgroundColor:fill?color.replace(')',',0.08)').replace('#',
+    v=>{ const r=parseInt(v.slice(1,3),16),g=parseInt(v.slice(3,5),16),b=parseInt(v.slice(5,7),16);
+    return `rgba(${r},${g},${b},0.08)`; }):'transparent',
+    fill,tension:.32,pointRadius:4,borderWidth:2.2,spanGaps:true};
+}
+
+function lineFill(label, data, color){
+  const r=parseInt(color.slice(1,3),16),g=parseInt(color.slice(3,5),16),b=parseInt(color.slice(5,7),16);
+  return {label,data,borderColor:color,backgroundColor:`rgba(${r},${g},${b},0.09)`,
+    fill:true,tension:.32,pointRadius:4,borderWidth:2.2,spanGaps:true};
+}
+
+function goalLine(label, val, n){
+  return {label,data:new Array(n).fill(val),borderColor:C.green,
+    borderDash:[7,4],borderWidth:1.8,pointRadius:0,fill:false,spanGaps:true};
+}
+
+function barDs(label, data, color){
+  return {label,data,backgroundColor:color,borderRadius:4,spanGaps:true};
+}
+
+function laborBarDs(label, data){
+  return {label,data,backgroundColor:data.map((v,i)=>{
+    if(i===0||data[i-1]===null||v===null) return C.amber;
+    const ch=(v-data[i-1])/Math.abs(data[i-1]);
+    return ch>0.1?'rgba(239,68,68,.75)':ch<-0.1?'rgba(16,185,129,.75)':C.amber;
+  }),borderRadius:4,spanGaps:true};
+}
+
+// ── NAVIGATION ────────────────────────────────────────────────
+function showTab(id){
+  document.querySelectorAll('.tab-c').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(e=>e.classList.remove('active'));
+  const tc=document.getElementById('tab-'+id);
+  if(tc) tc.classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(e=>{
+    if(e.getAttribute('onclick')&&e.getAttribute('onclick').includes("'"+id+"'")) e.classList.add('active');
+  });
+  requestAnimationFrame(()=>{ charts.forEach(c=>{try{c.resize()}catch(e){}}); });
+}
+
+// ── OVERVIEW ──────────────────────────────────────────────────
+function buildOverview(data){
+  const {dates,P,G}=data;
+  const defs=[
+    {key:'Odyssey Venue',      revParts:['Events','Brunch',"Michael's",'Beer Cart'], laborPart:'Labor'},
+    {key:'Elements',           revParts:['revenue'],                                  laborPart:'Labor'},
+    {key:'Odyssey Golf',       revParts:['Golf Revenue','Proshop','Driving'],          laborPart:'Labor'},
+    {key:'Sweet Spot Sports Bar', revParts:['F&B','Gaming'],                           laborPart:'Labor'},
+    {key:'Odyssey Fun World',  revParts:['Revenue prior'],                             laborPart:'Labor'},
+    {key:'Golfview Townhomes', revParts:null,                                          laborPart:null},
+  ];
+
+  const rows=defs.map(d=>{
+    const prop=P[d.key];
+    if(!prop) return '';
+    let revArr=d.revParts?sumKpis(P,d.key,d.revParts):null;
+    const laborArr=d.laborPart?getKpi(P,d.key,d.laborPart):null;
+    const latestRev=last(revArr);
+    const latestLabor=last(laborArr);
+    const revWow=wow(revArr);
+    const li=laborArr&&revArr?last(laborIntArr(revArr,laborArr)):null;
+    const t=revArr?trend3(revArr):laborArr?trend3(laborArr):'flat';
+
+    // Golfview: show occupancy instead of revenue
+    let revCell;
+    if(d.key==='Golfview Townhomes'){
+      const occ=getKpi(P,'Golfview Townhomes','Occupancy');
+      const ov=last(occ);
+      revCell=ov!==null?`<strong>${ov}%</strong> occupancy`:'—';
+    } else {
+      revCell=cur(latestRev);
+      if(revWow!==null){
+        const cls=revWow>2?'up':revWow<-2?'down':'flat';
+        const sign=revWow>0?'+':'';
+        revCell+=` <span class="stat-chg ${cls}" style="font-size:.72rem">${sign}${revWow.toFixed(1)}%</span>`;
+      }
+    }
+
+    return `<tr>
+      <td><span class="pname">${d.key}</span></td>
+      <td>${revCell}</td>
+      <td>${latestLabor!==null?num(latestLabor)+' hrs':'—'}</td>
+      <td>${li!==null?'$'+Math.round(li)+'/hr':'—'}</td>
+      <td>${trendArrow(t)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tab-overview').innerHTML=`
+    <div class="sec-title">Operations Overview</div>
+    <div class="sec-sub">${fileDisplayDate||dates[dates.length-1]} · All properties at a glance</div>
+
+    <div class="callout">
+      <strong>Team feedback:</strong> Red/green cells alone don't show overall trend direction.
+    </div>
+
+    <div class="card">
+      <div class="card-title">All Properties — Most Recent Week Snapshot</div>
+      <table class="ov">
+        <thead><tr><th>Property</th><th>Revenue / Occupancy</th><th>Labor Hours</th><th>Rev / Labor Hr</th><th>3-Wk Trend</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Revenue Trends — All Properties</div>
+        <div class="chart-wrap"><canvas id="ov-rev"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Labor Hours — All Properties</div>
+        <div class="chart-wrap"><canvas id="ov-labor"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  const palette=[C.blue,C.green,C.amber,C.purple,C.orange,C.teal];
+  const revDs=defs.filter(d=>d.revParts).map((d,i)=>
+    ({...lineFill(d.key,sumKpis(P,d.key,d.revParts),palette[i]),fill:false})
+  );
+  mkChart('ov-rev','line',dates,revDs,{dollar:true});
+
+  const labDs=defs.filter(d=>d.laborPart).map((d,i)=>
+    ({...lineFill(d.key,getKpi(P,d.key,d.laborPart),palette[i]),fill:false})
+  );
+  mkChart('ov-labor','line',dates,labDs,{});
+}
+
+// ── ODYSSEY VENUE ─────────────────────────────────────────────
+function buildVenue(data){
+  const {dates,P,G}=data;
+  const prop=P['Odyssey Venue'];
+  if(!prop){document.getElementById('tab-venue').innerHTML='<div class="card">No Odyssey Venue data found.</div>';return;}
+
+  const revKeys=Object.keys(prop).filter(k=>k.toLowerCase().includes('revenue')&&!k.toLowerCase().includes('labor'));
+  const laborKey=Object.keys(prop).find(k=>k.toLowerCase().includes('labor'));
+  const ev90Key=Object.keys(prop).find(k=>k.toLowerCase().includes('events for next'));
+  const newEvKey=Object.keys(prop).find(k=>k.toLowerCase().includes('new events'));
+
+  const totalRev=sumKpis(P,'Odyssey Venue',revKeys);
+  const labor=laborKey?prop[laborKey]:null;
+  const li=laborIntArr(totalRev,labor);
+
+  document.getElementById('tab-venue').innerHTML=`
+    <div class="sec-title">Odyssey Venue</div>
+    <div class="stats">
+      ${statHtml('Total Revenue',cur(last(totalRev)),wow(totalRev))}
+      ${statHtml('Labor Hours',num(last(labor))+' hrs',wow(labor))}
+      ${statHtml('Revenue per Labor Hour',last(li)!==null?'$'+Math.round(last(li)):' —',null)}
+      ${ev90Key?statHtml('Events Next 90 Days',num(last(prop[ev90Key]),0),null):''}
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Revenue by Stream (Stacked)</div>
+        <div class="chart-wrap"><canvas id="v-streams"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Total Revenue — Week-over-Week</div>
+        <div class="chart-wrap"><canvas id="v-rev"></canvas></div>
+        ${wowHtml(totalRev,dates)}
+      </div>
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Labor Hours — Spikes &amp; Drops Highlighted</div>
+        <div class="chart-wrap"><canvas id="v-labor"></canvas></div>
+        ${labor?wowHtml(labor,dates):''}
+      </div>
+      <div class="card">
+        <div class="card-title">Revenue per Labor Hour</div>
+        <div class="chart-wrap"><canvas id="v-li"></canvas></div>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Events Pipeline — Next 90 Days</div>
+        <div class="chart-wrap"><canvas id="v-ev90"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">New Events Booked per Week</div>
+        <div class="chart-wrap"><canvas id="v-newev"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  const sCols=[C.blue,C.sky,C.teal,C.green];
+  mkChart('v-streams','bar',dates,revKeys.map((k,i)=>({...barDs(k,prop[k],sCols[i%sCols.length]),stack:'s'})),{dollar:true});
+  mkChart('v-rev','line',dates,[lineFill('Total Revenue',totalRev,C.blue)],{dollar:true});
+  if(labor) mkChart('v-labor','bar',dates,[laborBarDs('Labor Hours',labor)],{});
+  if(li) mkChart('v-li','line',dates,[lineFill('Rev / Labor Hr',li,C.green)],{dollar:true});
+  if(ev90Key) mkChart('v-ev90','line',dates,[lineFill('Events (next 90d)',prop[ev90Key],C.purple)],{});
+  if(newEvKey) mkChart('v-newev','bar',dates,[barDs('New Bookings',prop[newEvKey],C.purple)],{});
+}
+
+// ── ELEMENTS ──────────────────────────────────────────────────
+function buildElements(data){
+  const {dates,P,G}=data;
+  const prop=P['Elements'];
+  if(!prop){document.getElementById('tab-elements').innerHTML='<div class="card">No Elements data found.</div>';return;}
+
+  const revKey=Object.keys(prop).find(k=>k.toLowerCase().includes('revenue'));
+  const laborKey=Object.keys(prop).find(k=>k.toLowerCase().includes('labor'));
+  const ev90Key=Object.keys(prop).find(k=>k.toLowerCase().includes('events for next'));
+  const newEvKey=Object.keys(prop).find(k=>k.toLowerCase().includes('new events'));
+
+  const rev=revKey?prop[revKey]:null;
+  const labor=laborKey?prop[laborKey]:null;
+  const li=laborIntArr(rev,labor);
+
+  document.getElementById('tab-elements').innerHTML=`
+    <div class="sec-title">Elements</div>
+    <div class="stats">
+      ${statHtml('Revenue',cur(last(rev)),wow(rev))}
+      ${statHtml('Labor Hours',num(last(labor))+' hrs',wow(labor))}
+      ${statHtml('Revenue per Labor Hour',last(li)!==null?'$'+Math.round(last(li)):' —',null)}
+      ${ev90Key?statHtml('Events Next 90 Days',num(last(prop[ev90Key]),0),null):''}
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Revenue — Week-over-Week</div>
+        <div class="chart-wrap"><canvas id="el-rev"></canvas></div>
+        ${rev?wowHtml(rev,dates):''}
+      </div>
+      <div class="card">
+        <div class="card-title">Labor Hours — Spikes &amp; Drops Highlighted</div>
+        <div class="chart-wrap"><canvas id="el-labor"></canvas></div>
+        ${labor?wowHtml(labor,dates):''}
+      </div>
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Revenue per Labor Hour</div>
+        <div class="chart-wrap"><canvas id="el-li"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Events Pipeline — Next 90 Days</div>
+        <div class="chart-wrap"><canvas id="el-ev90"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="max-width:600px">
+      <div class="card-title">New Events Booked per Week</div>
+      <div class="chart-wrap"><canvas id="el-newev"></canvas></div>
+    </div>
+  `;
+
+  if(rev) mkChart('el-rev','line',dates,[lineFill('Revenue',rev,C.blue)],{dollar:true});
+  if(labor) mkChart('el-labor','bar',dates,[laborBarDs('Labor Hours',labor)],{});
+  if(li) mkChart('el-li','line',dates,[lineFill('Rev / Labor Hr',li,C.green)],{dollar:true});
+  if(ev90Key) mkChart('el-ev90','line',dates,[lineFill('Events (next 90d)',prop[ev90Key],C.purple)],{});
+  if(newEvKey) mkChart('el-newev','bar',dates,[barDs('New Bookings',prop[newEvKey],C.purple)],{});
+}
+
+// ── ODYSSEY GOLF ──────────────────────────────────────────────
+function buildGolf(data){
+  const {dates,P,G}=data;
+  const prop=P['Odyssey Golf'];
+  if(!prop){document.getElementById('tab-golf').innerHTML='<div class="card">No Odyssey Golf data found.</div>';return;}
+
+  const golfKey=Object.keys(prop).find(k=>k.toLowerCase().includes('golf revenue'));
+  const proKey=Object.keys(prop).find(k=>k.toLowerCase().includes('proshop'));
+  const drKey=Object.keys(prop).find(k=>k.toLowerCase().includes('driving'));
+  const roundsKey=Object.keys(prop).find(k=>k.toLowerCase().includes('rounds'));
+  const laborKey=Object.keys(prop).find(k=>k.toLowerCase().includes('labor'));
+
+  const totalRev=sumKpis(P,'Odyssey Golf',['Golf Revenue','Proshop','Driving']);
+  const labor=laborKey?prop[laborKey]:null;
+  const li=laborIntArr(totalRev,labor);
+
+  document.getElementById('tab-golf').innerHTML=`
+    <div class="sec-title">Odyssey Golf</div>
+    <div class="stats">
+      ${statHtml('Total Revenue',cur(last(totalRev)),wow(totalRev))}
+      ${statHtml('Golf Revenue',cur(golfKey?last(prop[golfKey]):null),golfKey?wow(prop[golfKey]):null)}
+      ${statHtml('Rounds Played',roundsKey?num(last(prop[roundsKey]),0):'—',roundsKey?wow(prop[roundsKey]):null)}
+      ${statHtml('Labor Hours',num(last(labor))+' hrs',wow(labor))}
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Revenue by Stream (Stacked)</div>
+        <div class="chart-wrap"><canvas id="g-streams"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Total Revenue — Week-over-Week</div>
+        <div class="chart-wrap"><canvas id="g-rev"></canvas></div>
+        ${wowHtml(totalRev,dates)}
+      </div>
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Rounds Played per Week</div>
+        <div class="chart-wrap"><canvas id="g-rounds"></canvas></div>
+        ${roundsKey?wowHtml(prop[roundsKey],dates):''}
+      </div>
+      <div class="card">
+        <div class="card-title">Labor Hours — Spikes &amp; Drops Highlighted</div>
+        <div class="chart-wrap"><canvas id="g-labor"></canvas></div>
+        ${labor?wowHtml(labor,dates):''}
+      </div>
+    </div>
+    <div class="card" style="max-width:700px">
+      <div class="card-title">Revenue per Labor Hour</div>
+      <div class="chart-wrap"><canvas id="g-li"></canvas></div>
+    </div>
+  `;
+
+  const streams=[[golfKey,'Golf Revenue',C.blue],[proKey,'Pro Shop',C.sky],[drKey,'Driving Range',C.teal]]
+    .filter(s=>s[0]);
+  mkChart('g-streams','bar',dates,streams.map(s=>({...barDs(s[1],prop[s[0]],s[2]),stack:'s'})),{dollar:true});
+  mkChart('g-rev','line',dates,[lineFill('Total Revenue',totalRev,C.blue)],{dollar:true});
+  if(roundsKey) mkChart('g-rounds','bar',dates,[barDs('Rounds Played',prop[roundsKey],C.green)],{});
+  if(labor) mkChart('g-labor','bar',dates,[laborBarDs('Labor Hours',labor)],{});
+  if(li) mkChart('g-li','line',dates,[lineFill('Rev / Labor Hr',li,C.green)],{dollar:true});
+}
+
+// ── SWEET SPOT ────────────────────────────────────────────────
+function buildSweetSpot(data){
+  const {dates,P,G}=data;
+  const prop=P['Sweet Spot Sports Bar'];
+  if(!prop){document.getElementById('tab-sweetspot').innerHTML='<div class="card">No Sweet Spot data found.</div>';return;}
+
+  const fbKey=Object.keys(prop).find(k=>k.toLowerCase().includes('f&b'));
+  const gamKey=Object.keys(prop).find(k=>k.toLowerCase().includes('gaming'));
+  const laborKey=Object.keys(prop).find(k=>k.toLowerCase().includes('labor'));
+
+  const totalRev=sumKpis(P,'Sweet Spot Sports Bar',['F&B','Gaming']);
+  const labor=laborKey?prop[laborKey]:null;
+  const li=laborIntArr(totalRev,labor);
+
+  document.getElementById('tab-sweetspot').innerHTML=`
+    <div class="sec-title">Sweet Spot Sports Bar</div>
+    <div class="stats">
+      ${statHtml('Total Revenue',cur(last(totalRev)),wow(totalRev))}
+      ${statHtml('F&B Revenue',cur(fbKey?last(prop[fbKey]):null),fbKey?wow(prop[fbKey]):null)}
+      ${statHtml('Gaming Revenue',cur(gamKey?last(prop[gamKey]):null),gamKey?wow(prop[gamKey]):null)}
+      ${statHtml('Labor Hours',num(last(labor))+' hrs',wow(labor))}
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">F&amp;B vs Gaming Revenue</div>
+        <div class="chart-wrap"><canvas id="ss-rev"></canvas></div>
+        ${wowHtml(totalRev,dates)}
+      </div>
+      <div class="card">
+        <div class="card-title">Labor Hours — Spikes &amp; Drops Highlighted</div>
+        <div class="chart-wrap"><canvas id="ss-labor"></canvas></div>
+        ${labor?wowHtml(labor,dates):''}
+      </div>
+    </div>
+    <div class="card" style="max-width:700px">
+      <div class="card-title">Revenue per Labor Hour</div>
+      <div class="chart-wrap"><canvas id="ss-li"></canvas></div>
+    </div>
+  `;
+
+  const revDs=[[fbKey,'F&B Revenue',C.blue],[gamKey,'Gaming Revenue',C.purple]]
+    .filter(d=>d[0])
+    .map(d=>({...lineFill(d[1],prop[d[0]],d[2]),fill:false}));
+  mkChart('ss-rev','line',dates,revDs,{dollar:true});
+  if(labor) mkChart('ss-labor','bar',dates,[laborBarDs('Labor Hours',labor)],{});
+  if(li) mkChart('ss-li','line',dates,[lineFill('Rev / Labor Hr',li,C.green)],{dollar:true});
+}
+
+// ── FUN WORLD ─────────────────────────────────────────────────
+function buildFunWorld(data){
+  const {dates,P,G}=data;
+  const prop=P['Odyssey Fun World'];
+  if(!prop){document.getElementById('tab-funworld').innerHTML='<div class="card">No Odyssey Fun World data found.</div>';return;}
+
+  const revKey=Object.keys(prop).find(k=>k.toLowerCase().includes('revenue'));
+  const laborKey=Object.keys(prop).find(k=>k.toLowerCase().includes('labor'));
+
+  const rev=revKey?prop[revKey]:null;
+  const labor=laborKey?prop[laborKey]:null;
+  const li=laborIntArr(rev,labor);
+
+  document.getElementById('tab-funworld').innerHTML=`
+    <div class="sec-title">Odyssey Fun World</div>
+    <div class="stats">
+      ${statHtml('Revenue',cur(last(rev)),wow(rev))}
+      ${statHtml('Labor Hours',num(last(labor))+' hrs',wow(labor))}
+      ${statHtml('Revenue per Labor Hour',last(li)!==null?'$'+Math.round(last(li)):' —',null)}
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Revenue — Week-over-Week</div>
+        <div class="chart-wrap"><canvas id="fw-rev"></canvas></div>
+        ${rev?wowHtml(rev,dates):''}
+      </div>
+      <div class="card">
+        <div class="card-title">Labor Hours — Spikes &amp; Drops Highlighted</div>
+        <div class="chart-wrap"><canvas id="fw-labor"></canvas></div>
+        ${labor?wowHtml(labor,dates):''}
+      </div>
+    </div>
+    <div class="card" style="max-width:700px">
+      <div class="card-title">Revenue per Labor Hour</div>
+      <div class="chart-wrap"><canvas id="fw-li"></canvas></div>
+    </div>
+  `;
+
+  if(rev) mkChart('fw-rev','line',dates,[lineFill('Revenue',rev,C.orange)],{dollar:true});
+  if(labor) mkChart('fw-labor','bar',dates,[laborBarDs('Labor Hours',labor)],{});
+  if(li) mkChart('fw-li','line',dates,[lineFill('Rev / Labor Hr',li,C.green)],{dollar:true});
+}
+
+// ── GOLFVIEW ──────────────────────────────────────────────────
+function buildGolfview(data){
+  const {dates,P,G}=data;
+  const prop=P['Golfview Townhomes'];
+  if(!prop){document.getElementById('tab-golfview').innerHTML='<div class="card">No Golfview data found.</div>';return;}
+
+  const occKey=Object.keys(prop).find(k=>k.toLowerCase().includes('occupancy'));
+  const delKey=Object.keys(prop).find(k=>k.toLowerCase().includes('delinquency'));
+  const tourKey=Object.keys(prop).find(k=>k.toLowerCase().includes('tours'));
+  const appKey=Object.keys(prop).find(k=>k.toLowerCase().includes('applications'));
+  const signWkKey=Object.keys(prop).find(k=>k.toLowerCase().includes('signed prior week'));
+  const sign30Key=Object.keys(prop).find(k=>k.toLowerCase().includes('signed prior 30'));
+  const neededKey=Object.keys(prop).find(k=>k.toLowerCase().includes('needed'));
+
+  const occ=occKey?prop[occKey]:null;
+  const del=delKey?prop[delKey]:null;
+  const occGoal=G['Golfview Townhomes']&&occKey?G['Golfview Townhomes'][occKey]:null;
+  const delGoal=G['Golfview Townhomes']&&delKey?G['Golfview Townhomes'][delKey]:null;
+
+  const fl={
+    tours:tourKey?last(prop[tourKey]):null,
+    apps:appKey?last(prop[appKey]):null,
+    signed:signWkKey?last(prop[signWkKey]):null,
+    signed30:sign30Key?last(prop[sign30Key]):null,
+    needed:neededKey?last(prop[neededKey]):null
+  };
+
+  const funnelRows=[
+    {lbl:'Tours (this week)',val:fl.tours},
+    {lbl:'Applications submitted',val:fl.apps},
+    {lbl:'Leases signed (this week)',val:fl.signed},
+    {lbl:'Leases signed (last 30 days)',val:fl.signed30},
+    {lbl:'Leases needed (next 30 days)',val:fl.needed},
+  ].filter(r=>r.val!==null);
+
+  document.getElementById('tab-golfview').innerHTML=`
+    <div class="sec-title">Golfview Townhomes</div>
+    <div class="stats">
+      ${statHtml('Occupancy %',pctStr(last(occ)),wow(occ))}
+      ${occGoal?statHtml('Occupancy Goal',pctStr(occGoal),null):''}
+      ${statHtml('Delinquency %',pctStr(last(del)),del?-(wow(del)||0):null)}
+      ${delGoal?statHtml('Delinquency Goal','≤'+pctStr(delGoal),null):''}
+      ${statHtml('Tours Last Week',fl.tours!==null?num(fl.tours,0):'—',null)}
+      ${statHtml('Applications Last Week',fl.apps!==null?num(fl.apps,0):'—',null)}
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Occupancy % — Trend ${occGoal?`<span style="color:${C.green};font-size:.78rem">(Goal: ${occGoal}%)</span>`:''}
+        </div>
+        <div class="chart-wrap"><canvas id="gv-occ"></canvas></div>
+        ${occ?wowHtml(occ,dates):''}
+      </div>
+      <div class="card">
+        <div class="card-title">Delinquency % — Trend ${delGoal?`<span style="color:${C.green};font-size:.78rem">(Goal: ≤${delGoal}%)</span>`:''}
+        </div>
+        <div class="chart-wrap"><canvas id="gv-del"></canvas></div>
+        ${del?wowHtml(del,dates):''}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Leasing Funnel — Most Recent Week (Direction at a Glance)</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="gv-funnel"></canvas></div>
+      <div style="margin-top:10px;font-size:.78rem;color:#64748B">
+        Horizontal bars show the full leasing pipeline: from first contact (tours) through to signed leases and upcoming need.
+      </div>
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-title">Weekly Leasing Activity — Trend</div>
+        <div class="chart-wrap"><canvas id="gv-wk"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">30-Day Leasing Activity</div>
+        <div class="chart-wrap"><canvas id="gv-30d"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  // Occupancy
+  if(occ){
+    const occDs=[lineFill('Occupancy %',occ,C.sky)];
+    if(occGoal) occDs.push(goalLine('Goal ('+occGoal+'%)',occGoal,dates.length));
+    mkChart('gv-occ','line',dates,occDs,{pct:true});
+  }
+
+  // Delinquency
+  if(del){
+    const delDs=[lineFill('Delinquency %',del,C.red)];
+    if(delGoal) delDs.push(goalLine('Goal (≤'+delGoal+'%)',delGoal,dates.length));
+    mkChart('gv-del','line',dates,delDs,{pct:true});
+  }
+
+  // Funnel: horizontal bar
+  if(funnelRows.length){
+    mkChart('gv-funnel','bar',
+      funnelRows.map(r=>r.lbl),
+      [{
+        label:'Count',
+        data:funnelRows.map(r=>r.val),
+        backgroundColor:[C.sky,C.blue,C.green,C.teal,C.amber].slice(0,funnelRows.length),
+        borderRadius:5
+      }],
+      {pluginOverrides:{legend:{display:false}},extra:{indexAxis:'y'}}
+    );
+  }
+
+  // Weekly leasing trend
+  const wkDs=[[tourKey,'Tours',C.sky],[appKey,'Applications',C.blue],[signWkKey,'Leases Signed',C.green]]
+    .filter(d=>d[0])
+    .map(d=>({...lineFill(d[1],prop[d[0]],d[2]),fill:false}));
+  if(wkDs.length) mkChart('gv-wk','line',dates,wkDs,{});
+
+  // 30-day
+  const d30Ds=[[sign30Key,'Signed (30 days)',C.green],[neededKey,'Needed (30 days)',C.amber]]
+    .filter(d=>d[0])
+    .map(d=>barDs(d[1],prop[d[0]],d[2]));
+  if(d30Ds.length) mkChart('gv-30d','bar',dates,d30Ds,{});
+}
+
+// ── MAIN ──────────────────────────────────────────────────────
+function buildDashboard(parsed){
+  destroyAll();
+  buildOverview(parsed);
+  buildVenue(parsed);
+  buildElements(parsed);
+  buildGolf(parsed);
+  buildSweetSpot(parsed);
+  buildFunWorld(parsed);
+  buildGolfview(parsed);
+
+  document.getElementById('up-prompt').style.display='none';
+  document.getElementById('tabBar').classList.add('on');
+  document.getElementById('dash').classList.add('on');
+  showTab('overview');
+  setTimeout(()=>{ charts.forEach(c=>{try{c.resize()}catch(e){}});},120);
+}
+
+// ── FILE DATE ─────────────────────────────────────────────────
+let fileDisplayDate = '';
+function parseDateFromFilename(name){
+  const m = name.match(/(\d{4})\.(\d{2})\.(\d{2})/);
+  if(!m) return '';
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const d=parseInt(m[3],10), mo=parseInt(m[2],10)-1, y=m[1];
+  return `${months[mo]} ${d}, ${y}`;
+}
+
+// ── HOSTED MODE: auto-load if data was pre-embedded by generate_dashboard.py ──
+if(typeof PRELOADED_DATA!=='undefined'&&PRELOADED_DATA){
+  const fz=document.querySelector('.file-zone');
+  if(fz) fz.innerHTML=`<span style="font-size:.8rem;opacity:.75">${typeof PRELOADED_FILE!=='undefined'?PRELOADED_FILE:''}</span>`;
+  buildDashboard(PRELOADED_DATA);
+}
+
+document.getElementById('fileInput').addEventListener('change',function(e){
+  const file=e.target.files[0];
+  if(!file) return;
+  document.getElementById('fileName').textContent='Loading: '+file.name+'…';
+  fileDisplayDate=parseDateFromFilename(file.name);
+
+  function processData(data, readType){
+    try{
+      const wb=XLSX.read(data,{type:readType,cellDates:true});
+      const wsName=wb.SheetNames.find(n=>n.toLowerCase().includes('operating scorecard'));
+      if(!wsName){alert('Could not find "Operating Scorecard" tab in this file.');return;}
+      const parsed=parseSheet(wb.Sheets[wsName]);
+      if(!parsed){alert('Could not parse scorecard data.');return;}
+      document.getElementById('fileName').textContent=file.name;
+      buildDashboard(parsed);
+    }catch(err){
+      alert('Error reading file: '+err.message);
+      document.getElementById('fileName').textContent='Error — try again';
+    }
+  }
+
+  // Try ArrayBuffer first; fall back to binary string (more compatible with iOS/cloud files)
+  const r1=new FileReader();
+  r1.onerror=function(){
+    const r2=new FileReader();
+    r2.onerror=function(){ alert('Could not read this file. Make sure it is downloaded locally before selecting it.'); };
+    r2.onload=function(ev){ processData(ev.target.result,'binary'); };
+    r2.readAsBinaryString(file);
+  };
+  r1.onload=function(ev){
+    if(!ev.target.result||ev.target.result.byteLength===0){
+      // Empty result — file may not be fully downloaded from cloud; retry as binary
+      const r2=new FileReader();
+      r2.onerror=function(){ alert('Could not read this file. Make sure it is downloaded locally before selecting it.'); };
+      r2.onload=function(ev2){ processData(ev2.target.result,'binary'); };
+      r2.readAsBinaryString(file);
+      return;
+    }
+    processData(new Uint8Array(ev.target.result),'array');
+  };
+  r1.readAsArrayBuffer(file);
+});
+</script>
+</body>
+</html>
