@@ -473,7 +473,13 @@ function buildVenue(data){
     </div>
     <div class="g2">
       <div class="card">
-        <div class="card-title">Revenue by Stream (Stacked)</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">Revenue by Stream</div>
+          <select id="v-stream-select" style="font-size:.8rem;padding:4px 8px;border:1px solid #E2E8F0;border-radius:6px;background:#F8FAFC;color:#1E293B;cursor:pointer">
+            <option value="all">All Streams</option>
+            ${revKeys.map((k,i)=>`<option value="${i}">${k.replace('Prior week revenue-','')}</option>`).join('')}
+          </select>
+        </div>
         <div class="chart-wrap"><canvas id="v-streams"></canvas></div>
       </div>
       <div class="card">
@@ -487,6 +493,11 @@ function buildVenue(data){
         <div class="card-title">Labor Hours — Spikes &amp; Drops Highlighted</div>
         <div class="chart-wrap"><canvas id="v-labor"></canvas></div>
         ${labor?wowHtml(labor,dates):''}
+        <div style="font-size:.72rem;color:#64748B;margin-top:8px;display:flex;gap:12px">
+          <span><span style="color:#F59E0B;font-size:.9rem">■</span> Normal (±10%)</span>
+          <span><span style="color:#EF4444;font-size:.9rem">■</span> Spike (&gt;+10%)</span>
+          <span><span style="color:#10B981;font-size:.9rem">■</span> Drop (&gt;−10%)</span>
+        </div>
       </div>
       <div class="card">
         <div class="card-title">Revenue per Labor Hour</div>
@@ -506,7 +517,17 @@ function buildVenue(data){
   `;
 
   const sCols=[C.blue,C.sky,C.teal,C.green];
-  mkChart('v-streams','bar',dates,revKeys.map((k,i)=>({...barDs(k,prop[k],sCols[i%sCols.length]),stack:'s'})),{dollar:true});
+  const streamDatasets=revKeys.map((k,i)=>({...barDs(k,prop[k],sCols[i%sCols.length]),stack:'s'}));
+  const streamChart=mkChart('v-streams','bar',dates,streamDatasets,{dollar:true,pluginOverrides:{legend:{display:false}}});
+
+  document.getElementById('v-stream-select').addEventListener('change',function(){
+    const val=this.value;
+    streamChart.data.datasets.forEach((_,i)=>{
+      streamChart.getDatasetMeta(i).hidden=(val==='all'?false:i!==parseInt(val));
+    });
+    streamChart.update();
+  });
+
   mkChart('v-rev','line',dates,[lineFill('Total Revenue',totalRev,C.blue)],{dollar:true});
   if(labor) mkChart('v-labor','bar',dates,[laborBarDs('Labor Hours',labor)],{});
   if(li) mkChart('v-li','line',dates,[lineFill('Rev / Labor Hr',li,C.green)],{dollar:true});
@@ -598,7 +619,15 @@ function buildGolf(data){
     </div>
     <div class="g2">
       <div class="card">
-        <div class="card-title">Revenue by Stream (Stacked)</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:0">Revenue by Stream</div>
+          <select id="g-stream-select" style="font-size:.8rem;padding:4px 8px;border:1px solid #E2E8F0;border-radius:6px;background:#F8FAFC;color:#1E293B;cursor:pointer">
+            <option value="all">All Streams</option>
+            <option value="0">Golf Revenue</option>
+            <option value="1">Pro Shop</option>
+            <option value="2">Driving Range</option>
+          </select>
+        </div>
         <div class="chart-wrap"><canvas id="g-streams"></canvas></div>
       </div>
       <div class="card">
@@ -617,6 +646,11 @@ function buildGolf(data){
         <div class="card-title">Labor Hours — Spikes &amp; Drops Highlighted</div>
         <div class="chart-wrap"><canvas id="g-labor"></canvas></div>
         ${labor?wowHtml(labor,dates):''}
+        <div style="font-size:.72rem;color:#64748B;margin-top:8px;display:flex;gap:12px">
+          <span><span style="color:#F59E0B;font-size:.9rem">■</span> Normal (±10%)</span>
+          <span><span style="color:#EF4444;font-size:.9rem">■</span> Spike (&gt;+10%)</span>
+          <span><span style="color:#10B981;font-size:.9rem">■</span> Drop (&gt;−10%)</span>
+        </div>
       </div>
     </div>
     <div class="card" style="max-width:700px">
@@ -627,7 +661,15 @@ function buildGolf(data){
 
   const streams=[[golfKey,'Golf Revenue',C.blue],[proKey,'Pro Shop',C.sky],[drKey,'Driving Range',C.teal]]
     .filter(s=>s[0]);
-  mkChart('g-streams','bar',dates,streams.map(s=>({...barDs(s[1],prop[s[0]],s[2]),stack:'s'})),{dollar:true});
+  const golfStreamChart=mkChart('g-streams','bar',dates,streams.map(s=>({...barDs(s[1],prop[s[0]],s[2]),stack:'s'})),{dollar:true,pluginOverrides:{legend:{display:false}}});
+
+  document.getElementById('g-stream-select').addEventListener('change',function(){
+    const val=this.value;
+    golfStreamChart.data.datasets.forEach((_,i)=>{
+      golfStreamChart.getDatasetMeta(i).hidden=(val==='all'?false:i!==parseInt(val));
+    });
+    golfStreamChart.update();
+  });
   mkChart('g-rev','line',dates,[lineFill('Total Revenue',totalRev,C.blue)],{dollar:true});
   if(roundsKey) mkChart('g-rounds','bar',dates,[barDs('Rounds Played',prop[roundsKey],C.green)],{});
   if(labor) mkChart('g-labor','bar',dates,[laborBarDs('Labor Hours',labor)],{});
