@@ -368,7 +368,7 @@ function buildOverview(data){
     {key:'Odyssey Venue',      revParts:['Events','Brunch',"Michael's",'Beer Cart'], laborPart:'Labor'},
     {key:'Elements',           revParts:['revenue'],                                  laborPart:'Labor'},
     {key:'Odyssey Golf',       revParts:['Golf Revenue','Proshop','Driving'],          laborPart:'Labor'},
-    {key:'Sweet Spot Sports Bar', revParts:['F&B','Gaming'],                           laborPart:'Labor'},
+    {key:'Sweet Spot Sports Bar', revParts:['F&B','Gaming','Parking'],                  laborPart:'Labor'},
     {key:'Odyssey Fun World',  revParts:['Revenue prior'],                             laborPart:'Labor'},
     {key:'Golfview Townhomes', revParts:null,                                          laborPart:null},
   ];
@@ -684,9 +684,10 @@ function buildSweetSpot(data){
 
   const fbKey=Object.keys(prop).find(k=>k.toLowerCase().includes('f&b'));
   const gamKey=Object.keys(prop).find(k=>k.toLowerCase().includes('gaming'));
+  const parkKey=Object.keys(prop).find(k=>k.toLowerCase().includes('parking'));
   const laborKey=Object.keys(prop).find(k=>k.toLowerCase().includes('labor'));
 
-  const totalRev=sumKpis(P,'Sweet Spot Sports Bar',['F&B','Gaming']);
+  const totalRev=sumKpis(P,'Sweet Spot Sports Bar',['F&B','Gaming','Parking']);
   const labor=laborKey?prop[laborKey]:null;
   const li=laborIntArr(totalRev,labor);
 
@@ -695,12 +696,13 @@ function buildSweetSpot(data){
     <div class="stats">
       ${statHtml('Total Revenue',cur(last(totalRev)),wow(totalRev))}
       ${statHtml('F&B Revenue',cur(fbKey?last(prop[fbKey]):null),fbKey?wow(prop[fbKey]):null)}
+      ${parkKey?statHtml('Parking Revenue',cur(last(prop[parkKey])),wow(prop[parkKey])):''}
       ${statHtml('Gaming Revenue',cur(gamKey?last(prop[gamKey]):null),gamKey?wow(prop[gamKey]):null)}
       ${statHtml('Labor Hours',num(last(labor))+' hrs',wow(labor))}
     </div>
     <div class="g2">
       <div class="card">
-        <div class="card-title">F&amp;B vs Gaming Revenue</div>
+        <div class="card-title">Revenue by Stream</div>
         <div class="chart-wrap"><canvas id="ss-rev"></canvas></div>
         ${wowHtml(totalRev,dates)}
       </div>
@@ -708,6 +710,11 @@ function buildSweetSpot(data){
         <div class="card-title">Labor Hours — Spikes &amp; Drops Highlighted</div>
         <div class="chart-wrap"><canvas id="ss-labor"></canvas></div>
         ${labor?wowHtml(labor,dates):''}
+        <div style="font-size:.72rem;color:#64748B;margin-top:8px;display:flex;gap:12px">
+          <span><span style="color:#F59E0B;font-size:.9rem">■</span> Normal (±10%)</span>
+          <span><span style="color:#EF4444;font-size:.9rem">■</span> Spike (&gt;+10%)</span>
+          <span><span style="color:#10B981;font-size:.9rem">■</span> Drop (&gt;−10%)</span>
+        </div>
       </div>
     </div>
     <div class="card" style="max-width:700px">
@@ -716,7 +723,7 @@ function buildSweetSpot(data){
     </div>
   `;
 
-  const revDs=[[fbKey,'F&B Revenue',C.blue],[gamKey,'Gaming Revenue',C.purple]]
+  const revDs=[[fbKey,'F&B Revenue',C.blue],[parkKey,'Parking Revenue',C.sky],[gamKey,'Gaming Revenue',C.purple]]
     .filter(d=>d[0])
     .map(d=>({...lineFill(d[1],prop[d[0]],d[2]),fill:false}));
   mkChart('ss-rev','line',dates,revDs,{dollar:true});
