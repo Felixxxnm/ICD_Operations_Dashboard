@@ -454,7 +454,7 @@ function buildVenue(data){
   const prop=P['Odyssey Venue'];
   if(!prop){document.getElementById('tab-venue').innerHTML='<div class="card">No Odyssey Venue data found.</div>';return;}
 
-  const revKeys=Object.keys(prop).filter(k=>k.toLowerCase().includes('revenue')&&!k.toLowerCase().includes('labor'));
+  const revKeys=Object.keys(prop).filter(k=>k.toLowerCase().startsWith('prior week revenue'));
   const laborKey=Object.keys(prop).find(k=>k.toLowerCase().includes('labor'));
   const ev90Key=Object.keys(prop).find(k=>k.toLowerCase().includes('events for next'));
   const newEvKey=Object.keys(prop).find(k=>k.toLowerCase().includes('new events'));
