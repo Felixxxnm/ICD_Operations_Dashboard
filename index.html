@@ -82,6 +82,7 @@ table.ov tr:hover td{background:#F8FAFC}
   <button class="tab-btn" onclick="showTab('sweetspot')">Sweet Spot</button>
   <button class="tab-btn" onclick="showTab('funworld')">Odyssey Fun World</button>
   <button class="tab-btn" onclick="showTab('golfview')">Golfview Townhomes</button>
+  <button class="tab-btn" onclick="showTab('rawdata')">Raw Data</button>
 </div>
 
 <div id="up-prompt">
@@ -98,6 +99,7 @@ table.ov tr:hover td{background:#F8FAFC}
   <div class="tab-c" id="tab-sweetspot"></div>
   <div class="tab-c" id="tab-funworld"></div>
   <div class="tab-c" id="tab-golfview"></div>
+  <div class="tab-c" id="tab-rawdata"></div>
 </div>
 
 <script>
@@ -463,6 +465,23 @@ function buildVenue(data){
   const labor=laborKey?prop[laborKey]:null;
   const li=laborIntArr(totalRev,labor);
 
+  const sCols=[C.blue,C.sky,C.teal,C.green];
+  const streamLabels=revKeys.map(k=>k.replace(/prior week revenue[-\s]*/i,'').trim()||k);
+
+  // Build 2-per-row grid of individual stream charts
+  let streamGridHtml='';
+  for(let i=0;i<revKeys.length;i+=2){
+    const pair=revKeys.slice(i,i+2).map((k,j)=>{
+      const idx=i+j;
+      return `<div class="card">
+        <div class="card-title">${streamLabels[idx]}</div>
+        <div class="chart-wrap"><canvas id="v-stream-${idx}"></canvas></div>
+        ${wowHtml(prop[k],dates)}
+      </div>`;
+    }).join('');
+    streamGridHtml+=`<div class="g2">${pair}</div>`;
+  }
+
   document.getElementById('tab-venue').innerHTML=`
     <div class="sec-title">Odyssey Venue</div>
     <div class="stats">
@@ -471,24 +490,13 @@ function buildVenue(data){
       ${statHtml('Revenue per Labor Hour',last(li)!==null?'$'+Math.round(last(li)):' —',null)}
       ${ev90Key?statHtml('Events Next 90 Days',num(last(prop[ev90Key]),0),null):''}
     </div>
+    ${streamGridHtml}
     <div class="g2">
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <div class="card-title" style="margin-bottom:0">Revenue by Stream</div>
-          <select id="v-stream-select" style="font-size:.8rem;padding:4px 8px;border:1px solid #E2E8F0;border-radius:6px;background:#F8FAFC;color:#1E293B;cursor:pointer">
-            <option value="all">All Streams</option>
-            ${revKeys.map((k,i)=>`<option value="${i}">${k.replace('Prior week revenue-','')}</option>`).join('')}
-          </select>
-        </div>
-        <div class="chart-wrap"><canvas id="v-streams"></canvas></div>
-      </div>
       <div class="card">
         <div class="card-title">Total Revenue — Week-over-Week</div>
         <div class="chart-wrap"><canvas id="v-rev"></canvas></div>
         ${wowHtml(totalRev,dates)}
       </div>
-    </div>
-    <div class="g2">
       <div class="card">
         <div class="card-title">Labor Hours — Spikes &amp; Drops Highlighted</div>
         <div class="chart-wrap"><canvas id="v-labor"></canvas></div>
@@ -499,33 +507,26 @@ function buildVenue(data){
           <span><span style="color:#10B981;font-size:.9rem">■</span> Drop (&gt;−10%)</span>
         </div>
       </div>
+    </div>
+    <div class="g2">
       <div class="card">
         <div class="card-title">Revenue per Labor Hour</div>
         <div class="chart-wrap"><canvas id="v-li"></canvas></div>
       </div>
-    </div>
-    <div class="g2">
       <div class="card">
         <div class="card-title">Events Pipeline — Next 90 Days</div>
         <div class="chart-wrap"><canvas id="v-ev90"></canvas></div>
       </div>
-      <div class="card">
-        <div class="card-title">New Events Booked per Week</div>
-        <div class="chart-wrap"><canvas id="v-newev"></canvas></div>
-      </div>
     </div>
+    ${newEvKey?`<div class="card" style="max-width:600px">
+      <div class="card-title">New Events Booked per Week</div>
+      <div class="chart-wrap"><canvas id="v-newev"></canvas></div>
+    </div>`:''}
   `;
 
-  const sCols=[C.blue,C.sky,C.teal,C.green];
-  const streamDatasets=revKeys.map((k,i)=>({...barDs(k,prop[k],sCols[i%sCols.length]),stack:'s'}));
-  const streamChart=mkChart('v-streams','bar',dates,streamDatasets,{dollar:true,pluginOverrides:{legend:{display:false}}});
-
-  document.getElementById('v-stream-select').addEventListener('change',function(){
-    const val=this.value;
-    streamChart.data.datasets.forEach((_,i)=>{
-      streamChart.getDatasetMeta(i).hidden=(val==='all'?false:i!==parseInt(val));
-    });
-    streamChart.update();
+  revKeys.forEach((k,i)=>{
+    mkChart(`v-stream-${i}`,'bar',dates,[barDs(streamLabels[i],prop[k],sCols[i%sCols.length])],
+      {dollar:true,pluginOverrides:{legend:{display:false}}});
   });
 
   mkChart('v-rev','line',dates,[lineFill('Total Revenue',totalRev,C.blue)],{dollar:true});
@@ -893,6 +894,75 @@ function buildGolfview(data){
   if(d30Ds.length) mkChart('gv-30d','bar',dates,d30Ds,{});
 }
 
+// ── RAW DATA TABLE ────────────────────────────────────────────
+function buildRawData(data){
+  const {dates,P,G}=data;
+
+  function isDollar(kpi){
+    const k=kpi.toLowerCase();
+    return k.includes('revenue')||k.includes('f&b')||k.includes('parking')||k.includes('gaming');
+  }
+  function isPct(kpi){
+    const k=kpi.toLowerCase();
+    return k.includes('occupancy')||k.includes('delinquency');
+  }
+  function fmtCell(v,kpi){
+    if(v===null||v===undefined) return '<span style="color:#CBD5E1">—</span>';
+    if(isDollar(kpi)) return '$'+Math.round(v).toLocaleString();
+    if(isPct(kpi)) return v.toFixed(1)+'%';
+    return typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:1}):String(v);
+  }
+
+  const propPalette=['#DBEAFE','#D1FAE5','#FED7AA','#EDE9FE','#FDE68A','#BAE6FD'];
+  const propKeys=Object.keys(P);
+  const W1=170, W2=230;
+  const dispDates=[...dates].reverse();
+
+  const thBase='padding:9px 12px;font-size:.72rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #E2E8F0;white-space:nowrap;background:#F8FAFC';
+  const thead=`<thead><tr>
+    <th style="${thBase};position:sticky;top:0;left:0;z-index:6;min-width:${W1}px;width:${W1}px">Property</th>
+    <th style="${thBase};position:sticky;top:0;left:${W1}px;z-index:6;min-width:${W2}px;width:${W2}px">KPI</th>
+    <th style="${thBase};position:sticky;top:0;z-index:5;min-width:75px;text-align:right">Goal</th>
+    ${dispDates.map(d=>`<th style="${thBase};position:sticky;top:0;z-index:5;min-width:72px;text-align:right">${d}</th>`).join('')}
+  </tr></thead>`;
+
+  let tbody='<tbody>';
+  propKeys.forEach((pk,pi)=>{
+    const prop=P[pk],g=G[pk]||{};
+    const kpis=Object.keys(prop);
+    const hdrBg=propPalette[pi%propPalette.length];
+
+    kpis.forEach((kpi,ki)=>{
+      const vals=[...prop[kpi]].reverse();
+      const goal=g[kpi];
+      const rowBg=ki%2===0?'#fff':'#F8FAFC';
+      tbody+=`<tr>`;
+      if(ki===0){
+        tbody+=`<td rowspan="${kpis.length}" style="position:sticky;left:0;z-index:2;background:${hdrBg};font-weight:700;color:#0F172A;font-size:.82rem;border-right:2px solid #CBD5E1;vertical-align:top;padding:10px 12px;line-height:1.35;min-width:${W1}px;width:${W1}px">${pk}</td>`;
+      }
+      tbody+=`<td style="position:sticky;left:${W1}px;z-index:2;background:${rowBg};border-right:1px solid #E2E8F0;font-size:.8rem;color:#334155;padding:7px 12px;min-width:${W2}px;width:${W2}px;white-space:nowrap">${kpi}</td>`;
+      tbody+=`<td style="font-size:.78rem;color:#64748B;text-align:right;padding:7px 10px;white-space:nowrap">${goal!==undefined?fmtCell(goal,kpi):'—'}</td>`;
+      vals.forEach(v=>{
+        tbody+=`<td style="text-align:right;font-size:.8rem;color:#1E293B;padding:7px 10px;white-space:nowrap">${fmtCell(v,kpi)}</td>`;
+      });
+      tbody+=`</tr>`;
+    });
+    tbody+=`<tr><td colspan="${3+dates.length}" style="height:5px;background:#E2E8F0;padding:0"></td></tr>`;
+  });
+  tbody+='</tbody>';
+
+  document.getElementById('tab-rawdata').innerHTML=`
+    <div class="sec-title">Raw Data</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="overflow:auto;max-height:78vh">
+        <table style="border-collapse:collapse;font-family:'Segoe UI',Arial,sans-serif;width:max-content;min-width:100%">
+          ${thead}${tbody}
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 // ── MAIN ──────────────────────────────────────────────────────
 function buildDashboard(parsed){
   destroyAll();
@@ -903,6 +973,7 @@ function buildDashboard(parsed){
   buildSweetSpot(parsed);
   buildFunWorld(parsed);
   buildGolfview(parsed);
+  buildRawData(parsed);
 
   document.getElementById('up-prompt').style.display='none';
   document.getElementById('tabBar').classList.add('on');
